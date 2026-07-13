@@ -30,9 +30,9 @@ const BRACKET_POINTS: Record<RoundCode, number> = {
   QF: 40,
   SF: 80,
   F: 160,
-  "3RD": 0,
+  "3RD": 40,
 };
-export const BRACKET_MAX = 800; // "par" if you nailed every pick at base value (upsets push above)
+export const BRACKET_MAX = 840; // "par" if you nailed every pick at base value (upsets push above)
 
 // Map a winner's market win-probability to a multiplier:
 //   heavy favorite (~0.8) -> 0.6x   coin flip (0.5) -> 1.0x   big underdog (0.2) -> 2.5x
