@@ -131,6 +131,17 @@ function indexBracket(bracket: Bracket): BracketIndex {
       }
     }
   }
+  // Second pass: 3RD is excluded from parentOf (to preserve SF→F), so its
+  // byTeamRound entries must be populated separately. Any team whose path
+  // reaches either SF child could end up in the 3rd-place match.
+  for (const s of bracket.slots) {
+    if (s.round !== "3RD") continue;
+    for (const [mapKey, slotKey] of byTeamRound) {
+      if (mapKey.startsWith("SF:") && (slotKey === s.childAKey || slotKey === s.childBKey)) {
+        byTeamRound.set(`3RD:${mapKey.slice(3)}`, s.key);
+      }
+    }
+  }
   return {
     resolveKey: (storedKey, teamId) => {
       // A positional key like "R32-4" is a POSITION, not an identity: ESPN re-numbering
