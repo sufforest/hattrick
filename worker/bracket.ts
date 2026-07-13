@@ -112,6 +112,9 @@ function indexBracket(bracket: Bracket): BracketIndex {
   const slotByKey = new Map(bracket.slots.map((s) => [s.key, s]));
   const parentOf = new Map<string, string>();
   for (const s of bracket.slots) {
+    // Skip 3RD — its children (SF slots) are shared with the Final; the main
+    // tree path (R32→F) must take priority for the byTeamRound walk.
+    if (s.round === "3RD") continue;
     if (s.childAKey) parentOf.set(s.childAKey, s.key);
     if (s.childBKey) parentOf.set(s.childBKey, s.key);
   }
