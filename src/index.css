@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+/* ── Matchday Broadcast: an editorial sports-broadsheet identity ───────── */
+@theme {
+  --color-ink: #0a0b0a; /* near-black, warm */
+  --color-panel: #121412; /* raised surface */
+  --color-panel-2: #181b18; /* hover / nested */
+  --color-edge: #2b322c; /* hairline borders */
+  --color-edge-bright: #3c463d;
+  --color-bone: #f1eee2; /* newsprint cream text */
+  --color-bone-dim: #a8a89c;
+  --color-lime: #b8ff2e; /* signature accent (the pitch) */
+  --color-lime-deep: #8fdb00;
+  --color-flag: #ff453a; /* LIVE / danger */
+  --color-gold: #ffc83d; /* champion */
+
+  --font-display: "Anton", "Archivo", sans-serif;
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-ink);
+  background-image:
+    /* faint floodlight glow up top */
+    radial-gradient(1100px 480px at 50% -160px, rgba(184, 255, 46, 0.08), transparent 70%),
+    /* mowed-pitch vertical stripes, very subtle */
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.012) 0px,
+      rgba(255, 255, 255, 0.012) 2px,
+      transparent 2px,
+      transparent 46px
+    );
+  color: var(--color-bone);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* film-grain overlay for newsprint texture */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+#root {
+  position: relative;
+  z-index: 2;
+}
+
+/* display type: tighten the condensed look */
+.font-display {
+  letter-spacing: 0.01em;
+}
+
+::selection {
+  background: var(--color-lime);
+  color: #0a0b0a;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-edge) transparent;
+}
+
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-ticker {
+  animation: ticker 38s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-ticker {
+    animation: none;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}

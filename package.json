@@ -1,0 +1,42 @@
+{
+  "name": "hattrick",
+  "version": "0.1.0",
+  "description": "World Cup fantasy draft, bracket & matchday predictions — one app, three games, scored automatically from real results. Cloudflare Workers + D1 + React.",
+  "license": "MIT",
+  "author": "sufforest",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sufforest/hattrick.git"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "vite build && wrangler deploy",
+    "db:local": "wrangler d1 execute hattrick-db --local --file=./schema.sql",
+    "db:remote": "wrangler d1 execute hattrick-db --remote --file=./schema.sql",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "^4.6.14",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.1.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.0.0",
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vitest": "^4.1.9",
+    "wrangler": "^4.0.0"
+  }
+}
