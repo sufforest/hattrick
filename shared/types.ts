@@ -112,7 +112,7 @@ export interface MatchDetail extends Match {
 // ---- Bracket ----
 
 export interface BracketSlot {
-  key: string; // e.g. "R32-1", "R16-3", "QF-2", "SF-1", "F-1"
+  key: string; // e.g. "R32-1", "R16-3", "QF-2", "SF-1", "F-1", "3RD-1"
   round: RoundCode;
   roundLabel: string;
   matchNumber: number;
@@ -125,11 +125,13 @@ export interface BracketSlot {
   state: MatchState;
   date: string; // ISO kickoff
   statusDetail: string; // "FT", "63'", or scheduled time text
+  loserMatch?: boolean; // true for the 3rd-place playoff: fed by the LOSERS of its children
 }
 
 export interface Bracket {
-  slots: BracketSlot[]; // ordered R32 → F
+  slots: BracketSlot[]; // ordered R32 → F, plus the 3rd-place match
   champKey: string; // the slot whose winner is the champion (always "F-1")
+  thirdPlaceKey: string | null; // the 3rd-place playoff slot (always "3RD-1" when present)
 }
 
 // ---- League / game ----

@@ -6,14 +6,16 @@ import { Flag, SectionLabel, Pill, Kicker, Spinner, cx } from "../components/bit
 import { Updated } from "../components/Updated";
 
 const ROUND_SEQ: RoundCode[] = ["R32", "R16", "QF", "SF", "F"];
+const ALL_ROUNDS: RoundCode[] = ["R32", "R16", "QF", "SF", "F", "3RD"];
 const ROUND_LABEL: Record<string, string> = {
   R32: "Round of 32",
   R16: "Round of 16",
   QF: "Quarters",
   SF: "Semis",
   F: "Final",
+  "3RD": "3rd Place",
 };
-const ROUND_PTS: Record<string, number> = { R32: 10, R16: 20, QF: 40, SF: 80, F: 160 };
+const ROUND_PTS: Record<string, number> = { R32: 10, R16: 20, QF: 40, SF: 80, F: 160, "3RD": 40 };
 
 // desktop tree geometry
 const COL_W = 244;
@@ -73,6 +75,9 @@ export default function BracketPage() {
   const parentOf = useMemo(() => {
     const m = new Map<string, string>();
     for (const s of slots) {
+      // Skip 3RD — its children (SF slots) are shared with the Final; the main
+      // tree path (R32→F) takes priority for hover highlighting.
+      if (s.round === "3RD") continue;
       if (s.childAKey) m.set(s.childAKey, s.key);
       if (s.childBKey) m.set(s.childBKey, s.key);
     }
@@ -93,9 +98,28 @@ export default function BracketPage() {
   if (!resp) return <Spinner label="Loading the bracket…" />;
   const locked = resp.locked;
 
-  const advancing = (childKey: string | null): Advancing => {
+  // For loser matches (3RD place), the team feeding in is the LOSER of the child slot.
+  const advancing = (childKey: string | null, loserMatch = false): Advancing => {
     if (!childKey) return { team: null, dead: false };
     const slot = slotByKey.get(childKey);
+    if (loserMatch) {
+      // 3RD place: show the loser of the child slot, not the winner.
+      if (slot?.actualWinnerId) {
+        const loser = slot.actualWinnerId === slot.teamA?.id ? slot.teamB : slot.teamA;
+        return { team: loser ?? null, dead: false };
+      }
+      // Match not decided — infer from the user's pick: if they picked team A to
+      // win this slot, then team B is the loser who goes to 3rd place.
+      const pick = picks[childKey];
+      if (pick && slot) {
+        const loser = pick.teamId === slot.teamA?.id ? slot.teamB
+          : pick.teamId === slot.teamB?.id ? slot.teamA
+          : null;
+        if (!loser) return { team: null, dead: false };
+        return { team: loser, dead: false };
+      }
+      return { team: null, dead: false };
+    }
     const pick = picks[childKey];
     if (pick) {
       const team =
@@ -112,7 +136,7 @@ export default function BracketPage() {
   const candidatesFor = (slot: BracketSlot): [Advancing, Advancing] =>
     slot.round === "R32"
       ? [{ team: slot.teamA, dead: false }, { team: slot.teamB, dead: false }]
-      : [advancing(slot.childAKey), advancing(slot.childBKey)];
+      : [advancing(slot.childAKey, !!slot.loserMatch), advancing(slot.childBKey, !!slot.loserMatch)];
   const slotLocked = (slot: BracketSlot) => locked || slot.state !== "pre";
 
   async function select(slot: BracketSlot, team: TeamRef) {
@@ -197,7 +221,7 @@ export default function BracketPage() {
 
       <div className="rounded-lg border border-edge bg-panel p-3">
         <div className="mb-1.5 flex items-center justify-between font-mono text-[10px] uppercase tracking-wider">
-          <span className={totalPicked >= 31 ? "text-lime" : "text-bone-dim"}>
+          <span className={totalPicked >= 32 ? "text-lime" : "text-bone-dim"}>
             {totalPicked} / 31 picked
           </span>
           <span className="text-bone-dim">
@@ -213,7 +237,7 @@ export default function BracketPage() {
                   </>
                 )}
               </>
-            ) : totalPicked >= 31 ? (
+            ) : totalPicked >= 32 ? (
               <span className="text-lime">complete ✓</span>
             ) : (
               "open matches all locked"
@@ -223,7 +247,7 @@ export default function BracketPage() {
         <div className="h-1.5 overflow-hidden rounded-full bg-black/40">
           <div
             className="h-full rounded-full bg-lime transition-all"
-            style={{ width: `${Math.round((totalPicked / 31) * 100)}%` }}
+            style={{ width: `${Math.round((totalPicked / 32) * 100)}%` }}
           />
         </div>
       </div>
@@ -276,6 +300,12 @@ export default function BracketPage() {
                       key={s.key}
                       style={{ position: "absolute", left: p.x, top: p.y - CARD_H / 2, width: CARD_W }}
                     >
+                      {s.round === "3RD" && (
+                        <div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-bone-dim" style={{ marginTop: -18 }}>
+                          {ROUND_LABEL["3RD"]}
+                          <span className="text-bone-dim/40"> · {ROUND_PTS["3RD"]}pt</span>
+                        </div>
+                      )}
                       <MatchBox
                         slot={s}
                         candidates={candidatesFor(s)}
@@ -297,7 +327,7 @@ export default function BracketPage() {
           {/* mobile: round stepper */}
           <div className="sm:hidden">
             <div className="mb-3 flex gap-1">
-              {ROUND_SEQ.map((r) => (
+              {ALL_ROUNDS.map((r) => (
                 <button
                   key={r}
                   onClick={() => setStep(r)}
@@ -385,7 +415,15 @@ function computeLayout(slots: BracketSlot[]) {
       pos.set(s.key, { x, y });
     }
   });
-  return { pos, width: 4 * COL_W + CARD_W, height: PAD * 2 + 16 * ROW_H };
+  // Position the 3rd-place match: same column as the Final, below it.
+  const finalPos = pos.get("F-1");
+  for (const s of slots.filter((s) => s.round === "3RD")) {
+    const x = ROUND_SEQ.indexOf("F") * COL_W;
+    const y = finalPos ? finalPos.y + ROW_H * 2 : PAD + 16 * ROW_H;
+    pos.set(s.key, { x, y });
+  }
+  const maxY = Math.max(...Array.from(pos.values()).map((p) => p.y));
+  return { pos, width: 4 * COL_W + CARD_W, height: Math.max(PAD * 2 + 16 * ROW_H, maxY + CARD_H + PAD) };
 }
 
 function computePath(teamId: string | null, slots: BracketSlot[], parentOf: Map<string, string>) {
@@ -510,7 +548,7 @@ function RevealView({ bracket, teamById }: { bracket: Bracket; teamById: Map<str
 
   return (
     <div className="space-y-5">
-      {ROUND_SEQ.map((round) => {
+      {ALL_ROUNDS.map((round) => {
         const revealed = bracket.slots
           .filter((s) => s.round === round && slotsData[s.key]?.length)
           .sort((a, b) => a.matchNumber - b.matchNumber);
