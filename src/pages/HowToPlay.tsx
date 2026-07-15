@@ -40,9 +40,12 @@ export default function HowToPlay() {
         <p className="rounded-md border border-gold/30 bg-gold/[0.06] p-3 text-bone/85">
           <b className="text-gold">The one big idea:</b> it's a knockout, so a player only scores
           while their team is alive. A striker whose team exits in the Round of 32 plays once; a
-          defender on the finalist plays up to seven times. Draft for <b className="text-bone">
+          defender on the finalist plays five times. Draft for <b className="text-bone">
           survival</b>, not just star power — and spread across teams so you've still got eleven
           players standing in the semis. (The board's projection ranks players on exactly this.)
+          Lose a semi and the run's over — the third-place match pays{" "}
+          <b className="text-bone">nothing</b> here. It's worth 40 in the bracket, but that's a
+          different game.
         </p>
         <Scoring
           items={[
@@ -74,13 +77,14 @@ export default function HowToPlay() {
 
       <Game emoji="🏆" title="The Bracket" tag="predict the whole tree">
         <p>
-          Fill out the bracket — pick the winner of every match, Round of 32 to the Final. Picks lock
+          Fill out the bracket — pick the winner of every match, Round of 32 to the Final, the
+          third-place playoff included. Picks lock
           at each match's kickoff and finished matches fill in automatically. Classic commit-and-bust:
           a busted line stays busted, so be bold early.
         </p>
         <Scoring
           items={[
-            "Correct winner — R32 10 · R16 20 · QF 40 · SF 80 · Final 160",
+            "Correct winner — R32 10 · R16 20 · QF 40 · SF 80 · 3rd place 40 · Final 160",
             "× an upset bonus: chalk earns full value, correctly calling an underdog up to 3×",
           ]}
         />

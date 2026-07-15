@@ -31,7 +31,10 @@ export function statusLabel(m: Match): string {
   return kickoff(m.date);
 }
 
-export const ROUND_ORDER: RoundCode[] = ["R32", "R16", "QF", "SF", "F", "3RD"];
+// Display order for fixture lists — chronological, so the 3rd-place playoff sits above the
+// Final it's played the day before. (Not the same as bracket.ts's build order, which puts 3RD
+// last on purpose so its SF children resolve after the Final's.)
+export const ROUND_ORDER: RoundCode[] = ["R32", "R16", "QF", "SF", "3RD", "F"];
 
 export const ROUND_LABEL: Record<RoundCode, string> = {
   R32: "Round of 32",
