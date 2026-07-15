@@ -4,6 +4,12 @@ export type MatchState = "pre" | "in" | "post";
 
 export type RoundCode = "R32" | "R16" | "QF" | "SF" | "F" | "3RD";
 
+// Rounds that pay DRAFT points. 3RD is deliberately absent: a team's run ends when it loses
+// the semi, so its players stop scoring — the reward for going deep is already paid across the
+// four rounds they survived. The bracket scores 3RD separately (BRACKET_POINTS in scoring.ts);
+// predicting the playoff is a different contract from surviving to it.
+export const SCORING_ROUNDS: readonly RoundCode[] = ["R32", "R16", "QF", "SF", "F"];
+
 export interface TeamRef {
   id: string;
   name: string;

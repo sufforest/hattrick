@@ -105,13 +105,17 @@ export function simulateOutlook(
     return leafTeam ? new Map([[leafTeam.id, 1]]) : new Map();
   };
 
-  // bracket.slots is ordered R32 → F, so every slot's children are already solved.
+  // bracket.slots is ordered R32 → F, then 3RD last, so every slot's children are already solved.
   for (const slot of bracket.slots) {
     const entA = sideEntrants(slot.childAKey, slot.teamA);
     const entB = sideEntrants(slot.childBKey, slot.teamB);
 
-    // EMR: a not-yet-played match adds, for each participant, P(they reach it).
-    if (slot.state !== "post") {
+    // EMR: a not-yet-played match adds, for each participant, P(they reach it). The 3rd-place
+    // playoff is skipped: it pays no draft points (SCORING_ROUNDS), so it adds no expected
+    // points, and its children are the SF slots — whose winnerDist holds the two FINALISTS,
+    // i.e. exactly the teams that will never play it. Feeding that in would hand both
+    // finalists a phantom match and push emr past its 0..5 bound.
+    if (slot.state !== "post" && !slot.loserMatch) {
       for (const [id, p] of entA) addEmr(id, p);
       for (const [id, p] of entB) addEmr(id, p);
     }

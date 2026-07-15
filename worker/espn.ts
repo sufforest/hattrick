@@ -15,6 +15,7 @@ import type {
   Position,
   PlayerAgg,
 } from "../shared/types";
+import { SCORING_ROUNDS } from "../shared/types";
 
 export interface Env {
   DB: D1Database;
@@ -508,15 +509,21 @@ export async function getMatchPlayerStats(
   return out;
 }
 
-// Aggregate every player's stats across completed knockout matches.
+// Aggregate every player's SCORING_ROUNDS stats across completed knockout matches.
 export async function getFantasyStatsMap(env: Env): Promise<Record<string, PlayerAgg>> {
   // Aggregates only COMPLETED matches, so it's stable between match completions — cache the
   // whole thing briefly instead of re-summing every match's stats on every request.
-  const key = "espn:fstatsmap:v2";
+  // v3: 3RD dropped (see getFantasyStatsByRound) — v2 entries still carry it.
+  const key = "espn:fstatsmap:v3";
   const cached = await cacheGet<Record<string, PlayerAgg>>(env, key);
   if (cached) return cached;
   const matches = await getKnockoutMatches(env);
-  const completed = matches.filter((m) => m.state === "post" && m.winnerId);
+  // Same SCORING_ROUNDS rule as the per-round feed: this is what a player is WORTH to a manager,
+  // so it has to agree with the leaderboard. Otherwise the pool projects a 3rd-place hat-trick
+  // the Total board refuses to pay.
+  const completed = matches.filter(
+    (m) => m.state === "post" && m.winnerId && SCORING_ROUNDS.includes(m.round)
+  );
   const agg: Record<string, PlayerAgg> = {};
   for (const m of completed) {
     const ps = await getMatchPlayerStats(env, m.id, true);
@@ -556,11 +563,17 @@ export async function getFantasyStatsByRound(
 ): Promise<Record<string, Partial<Record<RoundCode, { agg: PlayerAgg; matchId: string }>>>> {
   type ByRound = Record<string, Partial<Record<RoundCode, { agg: PlayerAgg; matchId: string }>>>;
   // Completed matches only → stable between completions; cache briefly (see getFantasyStatsMap).
-  const key = "espn:fbyround:v2";
+  // v3: 3RD dropped from the fantasy view (see below) — v2 entries still carry it.
+  const key = "espn:fbyround:v3";
   const cached = await cacheGet<ByRound>(env, key);
   if (cached) return cached;
   const matches = await getKnockoutMatches(env);
-  const completed = matches.filter((m) => m.state === "post" && m.winnerId);
+  // SCORING_ROUNDS only — this is the fantasy view of the tournament, not the tournament. Every
+  // draft consumer reads 3RD-free data off this one map, which is what keeps the Total board, the
+  // H2H board, the eliminated flag and the transfer rules agreeing with each other.
+  const completed = matches.filter(
+    (m) => m.state === "post" && m.winnerId && SCORING_ROUNDS.includes(m.round)
+  );
   const out: ByRound = {};
   for (const m of completed) {
     const ps = await getMatchPlayerStats(env, m.id, true);

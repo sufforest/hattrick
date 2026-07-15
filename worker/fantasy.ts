@@ -10,8 +10,7 @@ import type {
   PublicMember,
   RoundCode,
 } from "../shared/types";
-
-const ALL_ROUNDS: RoundCode[] = ["R32", "R16", "QF", "SF", "F"];
+import { SCORING_ROUNDS } from "../shared/types";
 
 // Per-round stats per player (what captain & the upset bonus score off).
 export type StatsByRound = Record<string, Partial<Record<RoundCode, { agg: PlayerAgg; matchId: string }>>>;
@@ -156,7 +155,10 @@ export function attributeByMatch(
     if (!pos) continue;
     const log: MatchAttribution[] = [];
     for (const [round, entry] of Object.entries(rounds)) {
-      if (!entry) continue;
+      // Belt-and-braces with the SCORING_ROUNDS filter on the stats feed: the rule that 3RD
+      // pays nothing is a scoring rule, so it holds here too rather than depending on the
+      // caller handing us pre-filtered data.
+      if (!entry || !SCORING_ROUNDS.includes(round as RoundCode)) continue;
       const kickoff = matchDate[entry.matchId] ?? 0;
       const raw = fantasyPoints(entry.agg, pos);
       const spell = ownerAt(playerId, kickoff);
@@ -438,7 +440,7 @@ export function computeH2HStandings(
 
   // Rounds with a completed match that someone actually owned a player for — a round
   // whose only results predate the draft (pre-acquisition) hasn't been "played" for H2H.
-  const playedRounds = ALL_ROUNDS.filter((r) =>
+  const playedRounds = SCORING_ROUNDS.filter((r) =>
     picks.some((p) => {
       const entry = extras.byRound?.[p.playerId]?.[r];
       return !!entry && !p.dropped && ownedDuringMatch(p, entry.matchId, extras);

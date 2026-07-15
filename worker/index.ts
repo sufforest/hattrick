@@ -36,7 +36,7 @@ import type {
   RoundCode,
   Session,
 } from "../shared/types";
-import { CHIPS, FORMATIONS, PICK_CLOCKS, REACTIONS, squadFromFormation } from "../shared/types";
+import { CHIPS, FORMATIONS, PICK_CLOCKS, REACTIONS, SCORING_ROUNDS, squadFromFormation } from "../shared/types";
 
 interface MemberRow {
   id: string;
@@ -460,7 +460,13 @@ async function runAutopick(env: Env, league: LeagueRow): Promise<number> {
 // current state. Idempotent via dedupe_key, so the cron runs it safely every cycle.
 async function deriveMatchActivity(env: Env) {
   const matches = await getKnockoutMatches(env);
-  const completed = matches.filter((m) => m.state === "post" && m.winnerId);
+  // SCORING_ROUNDS only. Both feed items below are draft-facing: 3RD pays no points, so there's
+  // no performance to report, and it eliminates nobody — the playoff's loser went out at the
+  // semi and was already mourned there. Without this the elim item fires twice for one team
+  // (the dedupe key is per-match, so the SF and 3RD notices don't collapse).
+  const completed = matches.filter(
+    (m) => m.state === "post" && m.winnerId && SCORING_ROUNDS.includes(m.round)
+  );
   if (completed.length === 0) return;
   const completedIds = new Set(completed.map((m) => m.id));
   const matchById = new Map(completed.map((m) => [m.id, m]));
