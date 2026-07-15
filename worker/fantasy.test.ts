@@ -305,3 +305,50 @@ describe("acquisition gating (pre-draft matches don't count)", () => {
     expect(h.find((x) => x.memberId === "m1")!.roundsPlayed).toBe(2); // both rounds count
   });
 });
+
+// The 3rd-place playoff pays no draft points: a team's run ends when it loses the semi.
+// (The bracket still scores 3RD — that's a prediction contract, see scoring.test.ts.)
+describe("3rd-place playoff does not score for the draft", () => {
+  const thirdByRound: StatsByRound = {
+    P1: {
+      R16: { agg: agg({ apps: 1, goals: 1 }), matchId: "a" }, // 1 + 4 = 5
+      "3RD": { agg: agg({ apps: 1, goals: 3 }), matchId: "z" }, // would be 1 + 12 = 13
+    },
+  };
+  const thirdDates = { a: 1000, z: 2000 };
+  const solo = [member("m1", "A", 1)];
+  const soloPicks = [pick("m1", "P1", "FWD")];
+
+  it("a hat-trick in the 3rd-place match is worth nothing", () => {
+    const s = computeStandingsByMatch(solo, soloPicks, thirdByRound, thirdDates, new Set());
+    expect(s[0].points).toBe(5); // R16 only — the 13 from 3RD never lands
+    const line = s[0].players.find((p) => p.playerId === "P1")!;
+    expect(line.goals).toBe(1); // and it isn't shown in the line's stats either
+    expect(line.apps).toBe(1);
+  });
+
+  it("the giant-killer bonus can't resurrect it", () => {
+    const s = computeStandingsByMatch(solo, soloPicks, thirdByRound, thirdDates, new Set(), {
+      byRound: thirdByRound,
+      upsetMult: (_pid: string, r: string) => (r === "3RD" ? 3 : 1),
+    });
+    expect(s[0].points).toBe(5);
+  });
+
+  it("Total and H2H agree on which rounds were played", () => {
+    const h = computeH2HStandings(solo, soloPicks, { byRound: thirdByRound, matchDate: thirdDates });
+    expect(h[0].roundsPlayed).toBe(1); // R16 only — not 2
+  });
+
+  it("a semi-final loser is eliminated, and that is now the truth", () => {
+    const sf: Match[] = [
+      { id: "a", round: "SF", state: "post", winnerId: "tWin",
+        home: { id: "tWin", name: "W", abbr: "W" }, away: { id: "tP1", name: "L", abbr: "L" } } as any,
+    ];
+    expect(eliminatedTeams(sf).has("tP1")).toBe(true);
+    // ...and the flag no longer contradicts the scoring: the player really is done.
+    const s = computeStandingsByMatch(solo, soloPicks, thirdByRound, thirdDates, eliminatedTeams(sf));
+    expect(s[0].players[0].eliminated).toBe(true);
+    expect(s[0].points).toBe(5);
+  });
+});
