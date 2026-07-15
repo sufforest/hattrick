@@ -192,7 +192,7 @@ const ROUND_LABELS: Record<RoundCode, string> = {
   "3RD": "Third Place",
 };
 
-function assignRounds(
+export function assignRounds(
   raw: Omit<Match, "round" | "roundLabel" | "matchNumber">[],
   mnMap: Record<string, number>
 ): Match[] {
@@ -216,11 +216,33 @@ function assignRounds(
   for (const [rc, start, end] of ranges) {
     for (let i = start; i < end && i < sorted.length; i++) round.set(sorted[i].id, rc);
   }
-  for (const m of sorted.slice(30)) {
-    const isThird =
-      /Loser/i.test(m.homePlaceholder ?? "") || /Loser/i.test(m.awayPlaceholder ?? "");
-    round.set(m.id, isThird ? "3RD" : "F");
+  // The two SF losers — the only teams that can contest the 3rd-place playoff. Derived from
+  // the results, so unlike placeholder text this is available exactly when the text isn't.
+  const sfLosers = new Set<string>();
+  for (let i = 28; i < 30 && i < sorted.length; i++) {
+    const m = sorted[i];
+    if (m.state !== "post" || !m.winnerId) continue;
+    const loser = m.winnerId === m.home?.id ? m.away?.id : m.home?.id;
+    if (loser) sfLosers.add(loser);
   }
+
+  // The tail is the 3rd-place playoff + the Final. Telling them apart has to work in BOTH
+  // phases: ESPN publishes "Semifinal 1 Loser" placeholders only until the semis resolve, then
+  // swaps in the real teams. A placeholder-only test therefore stops recognising the playoff at
+  // the exact moment it stops being hypothetical — it silently relabels it "F", which hands
+  // champKey ("F-1", the earlier match) to the playoff and crowns the wrong team.
+  const tail = sorted.slice(30);
+  tail.forEach((m, i) => {
+    const ph = `${m.homePlaceholder ?? ""} ${m.awayPlaceholder ?? ""}`;
+    const isThird =
+      /Loser/i.test(ph) || // before the semis resolve: ESPN says so outright
+      (!!m.home?.id &&
+        !!m.away?.id &&
+        sfLosers.has(m.home.id) &&
+        sfLosers.has(m.away.id)) || // after: only the playoff pits two beaten semi-finalists
+      (tail.length === 2 && i === 0 && !/Winner/i.test(ph)); // backstop: the playoff is first
+    round.set(m.id, isThird ? "3RD" : "F");
+  });
 
   // Step 2: number matches *within* each round by ESPN's match number, so our
   // `R32-3` is ESPN's "Round of 32 3" — the same N its parent slots reference.
