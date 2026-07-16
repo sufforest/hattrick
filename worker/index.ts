@@ -1521,8 +1521,12 @@ app.get("/api/draft/match/:matchId/mine", requireAuth, async (c) => {
   const mine = (picksRes.results ?? []).filter(
     (p: any) => p.country_id === m.home?.id || p.country_id === m.away?.id
   );
+  // The 3rd-place playoff pays nothing (SCORING_ROUNDS), but these stats come straight from
+  // getMatchPlayerStats rather than the filtered byRound feed — so the filter never reaches
+  // here and the round has to be checked directly.
+  const scores = SCORING_ROUNDS.includes(m.round);
   if (m.state === "pre" || mine.length === 0)
-    return c.json({ state: m.state, total: 0, players: [] });
+    return c.json({ state: m.state, scores, total: 0, players: [] });
 
   const stats = await getMatchPlayerStats(c.env, matchId, m.state === "post");
   const players = mine
@@ -1552,7 +1556,14 @@ app.get("/api/draft/match/:matchId/mine", requireAuth, async (c) => {
       };
     })
     .sort((a, b) => b.points - a.points);
-  return c.json({ state: m.state, total: players.reduce((s, p) => s + p.points, 0), players });
+  // total is 0 for a non-scoring round — there is nothing to add up, and a running total is
+  // the loudest possible claim that these points are real.
+  return c.json({
+    state: m.state,
+    scores,
+    total: scores ? players.reduce((s, p) => s + p.points, 0) : 0,
+    players,
+  });
 });
 
 // Every player who took the pitch in this match (both teams) with the fantasy points they
@@ -1563,7 +1574,12 @@ app.get("/api/match/:matchId/fantasy", requireAuth, async (c) => {
   const matchId = c.req.param("matchId");
   const m = (await getKnockoutMatches(c.env)).find((x) => x.id === matchId);
   if (!m) return c.json({ error: "match not found" }, 404);
-  const base = { state: m.state, homeId: m.home?.id ?? null, awayId: m.away?.id ?? null };
+  const base = {
+    state: m.state,
+    scores: SCORING_ROUNDS.includes(m.round), // see the sibling endpoint above
+    homeId: m.home?.id ?? null,
+    awayId: m.away?.id ?? null,
+  };
   if (m.state === "pre") return c.json({ ...base, players: [] });
 
   const [stats, pool, picksRes, memRes] = await Promise.all([

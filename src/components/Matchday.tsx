@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { usePoll } from "../lib/usePoll";
 import type { DraftState, LiveMatchMine, Match } from "../../shared/types";
-import { CHIPS } from "../../shared/types";
+import { CHIPS, SCORING_ROUNDS } from "../../shared/types";
 import { useSession } from "../lib/session";
 import { Flag, LiveDot, ScoreNum, SectionLabel, cx } from "./bits";
 import { isToday, statusLabel } from "../lib/format";
@@ -59,8 +59,12 @@ export default function Matchday({ matches }: { matches: Match[] }) {
   const drafted = (draft?.picks ?? []).some((p) => p.memberId === me);
   const needCaptain = drafted && capRound && !capRound.locked && !capId && inMatch.length > 0;
   const liveBy = new Map((livePts?.players ?? []).map((p) => [p.playerId, p]));
-  const showLivePts = m.state !== "pre" && (livePts?.players?.length ?? 0) > 0;
-  const activeLive = activeId ? liveBy.get(activeId) : undefined;
+  // The 3rd-place playoff is a real match that pays no draft points. Show who's in it, never
+  // what they "scored" — a number beside a name is a promise, and this one would never be
+  // paid. Read off the round (not the response) so the note is up before kickoff too.
+  const nonScoring = !SCORING_ROUNDS.includes(m.round);
+  const showLivePts = m.state !== "pre" && !nonScoring && (livePts?.players?.length ?? 0) > 0;
+  const activeLive = activeId && !nonScoring ? liveBy.get(activeId) : undefined;
 
   return (
     <section className="animate-rise">
@@ -123,7 +127,18 @@ export default function Matchday({ matches }: { matches: Match[] }) {
                   {livePts!.total} pts {m.state === "in" ? "so far" : "this game"}
                 </span>
               )}
+              {nonScoring && (
+                <span className="shrink-0 font-mono text-[10px] font-bold text-bone-dim">
+                  no draft points
+                </span>
+              )}
             </div>
+            {nonScoring && inMatch.length > 0 && (
+              <p className="mb-2 rounded-md border border-edge bg-black/20 px-2.5 py-1.5 text-[11px] leading-snug text-bone-dim">
+                Third place — <b className="text-bone/70">doesn't count for the draft</b>. Their run
+                ended at the semi, so nothing here reaches the table.
+              </p>
+            )}
             {inMatch.length > 0 ? (
               <>
                 <div className="flex flex-wrap gap-1.5">

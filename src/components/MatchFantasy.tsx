@@ -38,10 +38,17 @@ export default function MatchFantasy({
     { team: away, list: players.filter((p) => p.teamId === away?.id) },
   ].filter((g) => g.list.length > 0);
 
+  // The 3rd-place playoff pays no draft points (see MatchFantasyView.scores). Show what each
+  // player did — that's real and it's what people came to see — but never a points figure,
+  // which would read as earnings that never arrive on the table.
+  const scores = data?.scores !== false;
+
   return (
     <section className="space-y-4">
       <p className="font-mono text-[10px] uppercase tracking-wide text-bone-dim">
-        Fantasy points earned this match · tap a player for the breakdown
+        {scores
+          ? "Fantasy points earned this match · tap a player for the breakdown"
+          : "Third place · no draft points — what they did, not what it's worth"}
       </p>
       {groups.map(({ team, list }) => {
         const teamTotal = list.reduce((s, p) => s + p.points, 0);
@@ -50,9 +57,11 @@ export default function MatchFantasy({
             <div className="flex items-center gap-2 border-b border-edge bg-black/20 px-3 py-2">
               <Flag team={team} size={18} />
               <span className="text-sm font-bold text-bone">{team?.name ?? "Team"}</span>
-              <span className="ml-auto font-mono text-[11px] font-bold text-lime">
-                {teamTotal} pts
-              </span>
+              {scores && (
+                <span className="ml-auto font-mono text-[11px] font-bold text-lime">
+                  {teamTotal} pts
+                </span>
+              )}
             </div>
             <div className="divide-y divide-edge/60">
               {list.map((p) => {
@@ -90,21 +99,34 @@ export default function MatchFantasy({
                           {p.mine ? "You" : p.ownerName}
                         </span>
                       )}
-                      <span
-                        className={cx(
-                          "ml-auto shrink-0 font-mono text-sm font-bold tabular-nums",
-                          p.points > 0 ? "text-lime" : p.points < 0 ? "text-flag" : "text-bone-dim"
-                        )}
-                      >
-                        {p.points >= 0 ? "+" : ""}
-                        {p.points}
-                      </span>
+                      {scores ? (
+                        <span
+                          className={cx(
+                            "ml-auto shrink-0 font-mono text-sm font-bold tabular-nums",
+                            p.points > 0 ? "text-lime" : p.points < 0 ? "text-flag" : "text-bone-dim"
+                          )}
+                        >
+                          {p.points >= 0 ? "+" : ""}
+                          {p.points}
+                        </span>
+                      ) : (
+                        <span className="ml-auto shrink-0 font-mono text-[10px] text-bone-dim">
+                          {[
+                            p.goals ? `${p.goals}G` : null,
+                            p.assists ? `${p.assists}A` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" ") || "—"}
+                        </span>
+                      )}
                     </button>
                     {open && (
                       <div className="bg-black/30 px-3 pb-2.5 pt-1">
                         {p.breakdown.length === 0 ? (
                           <div className="font-mono text-[10px] text-bone-dim">
-                            On the pitch — no points-scoring actions yet.
+                            {scores
+                              ? "On the pitch — no points-scoring actions yet."
+                              : "On the pitch."}
                           </div>
                         ) : (
                           <div className="ml-9 space-y-0.5">
@@ -114,10 +136,12 @@ export default function MatchFantasy({
                                 className="flex items-center justify-between gap-4 font-mono text-[10px]"
                               >
                                 <span className="text-bone/70">{b.label}</span>
-                                <span className={b.pts >= 0 ? "text-lime" : "text-flag"}>
-                                  {b.pts >= 0 ? "+" : ""}
-                                  {b.pts}
-                                </span>
+                                {scores && (
+                                  <span className={b.pts >= 0 ? "text-lime" : "text-flag"}>
+                                    {b.pts >= 0 ? "+" : ""}
+                                    {b.pts}
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>

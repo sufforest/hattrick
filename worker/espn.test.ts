@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { assignRounds } from "./espn";
 import { buildBracket } from "./bracket";
-import type { Match, TeamRef } from "../shared/types";
+import type { Match, RoundCode, TeamRef } from "../shared/types";
+import { SCORING_ROUNDS } from "../shared/types";
 
 const team = (id: string): TeamRef => ({ id, name: id, abbr: id });
 
@@ -114,5 +115,25 @@ describe("buildBracket — champKey after the semis resolve", () => {
     expect(third.loserMatch).toBe(true);
     expect(third.childAKey).toBe("SF-1");
     expect(third.childBKey).toBe("SF-2");
+  });
+});
+
+// The per-match endpoints (/api/draft/match/:id/mine, /api/match/:id/fantasy) read raw stats
+// from getMatchPlayerStats rather than the SCORING_ROUNDS-filtered byRound feed, so the filter
+// never reaches them. They gate on the round directly instead — this pins that contract.
+describe("SCORING_ROUNDS gates the per-match views", () => {
+  it("excludes 3RD and includes every round that pays", () => {
+    expect(SCORING_ROUNDS.includes("3RD" as RoundCode)).toBe(false);
+    for (const r of ["R32", "R16", "QF", "SF", "F"] as RoundCode[])
+      expect(SCORING_ROUNDS.includes(r)).toBe(true);
+  });
+
+  it("the playoff resolves to a non-scoring round on the real bracket shape", () => {
+    const ms = assignRounds(knockout("resolved"), {});
+    const playoff = ms.find((m) => m.home?.id === "FRA" && m.away?.id === "ENG")!;
+    const final = ms.find((m) => m.home?.id === "ESP" && m.away?.id === "ARG")!;
+    // What the endpoints compute for `scores`.
+    expect(SCORING_ROUNDS.includes(playoff.round)).toBe(false); // -> no points rendered
+    expect(SCORING_ROUNDS.includes(final.round)).toBe(true);
   });
 });

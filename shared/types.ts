@@ -240,6 +240,10 @@ export interface DraftState {
 // the "points climbing" view on the matchday panel.
 export interface LiveMatchMine {
   state: MatchState;
+  // False for a round outside SCORING_ROUNDS (the 3rd-place playoff). The stats are real —
+  // the points aren't, because nothing here reaches the table. Callers must not render point
+  // values when this is false; a number beside a player's name reads as a promise to pay it.
+  scores: boolean;
   total: number;
   players: {
     playerId: string;
@@ -273,6 +277,7 @@ export interface MatchFantasyPlayer {
 
 export interface MatchFantasyView {
   state: MatchState;
+  scores: boolean; // see LiveMatchMine.scores
   homeId: string | null;
   awayId: string | null;
   players: MatchFantasyPlayer[];
