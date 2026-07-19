@@ -405,6 +405,19 @@ function flattenAthletes(data: any): any[] {
   return out;
 }
 
+// One nation's roster, with a single retry — a lone transient miss used to drop that whole
+// squad from the pool, so it's worth one more attempt before giving up on the team.
+async function fetchTeamRoster(teamId: string): Promise<any | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await espnFetch(`/teams/${teamId}/roster`);
+    } catch {
+      /* fall through to the retry, then to null */
+    }
+  }
+  return null;
+}
+
 export async function getPlayerPool(env: Env): Promise<PoolPlayer[]> {
   const key = "espn:playerpool";
   const cached = await cacheGet<PoolPlayer[]>(env, key);
@@ -412,10 +425,16 @@ export async function getPlayerPool(env: Env): Promise<PoolPlayer[]> {
 
   const teams = await getTeams(env);
   const pool: PoolPlayer[] = [];
-  await Promise.all(
-    teams.map(async (team) => {
-      try {
-        const data = await espnFetch(`/teams/${team.id}/roster`);
+  const covered = new Set<string>(); // team ids that contributed at least one player
+  // Fetch in small batches, not all 32 at once. A concurrent burst trips ESPN's rate limit
+  // (and flirts with the Worker subrequest cap); every team that failed was silently skipped.
+  // See getMatchNumberMap for the same batching rationale.
+  const BATCH = 6;
+  for (let i = 0; i < teams.length; i += BATCH) {
+    await Promise.all(
+      teams.slice(i, i + BATCH).map(async (team) => {
+        const data = await fetchTeamRoster(team.id);
+        if (!data) return; // missed even after a retry — better a short cache than a poisoned one
         for (const a of flattenAthletes(data)) {
           const id = String(a.id ?? a.athlete?.id ?? "");
           const name = a.displayName ?? a.fullName ?? a.athlete?.displayName ?? "";
@@ -423,14 +442,20 @@ export async function getPlayerPool(env: Env): Promise<PoolPlayer[]> {
             a.position?.abbreviation ?? a.athlete?.position?.abbreviation ?? a.position?.name ?? "";
           if (!id || !name) continue;
           pool.push({ id, name, position: mapPosition(posAbbr), posAbbr, team });
+          covered.add(team.id);
         }
-      } catch {
-        /* skip team on error */
-      }
-    })
-  );
+      })
+    );
+  }
   pool.sort((a, b) => a.team.name.localeCompare(b.team.name) || a.name.localeCompare(b.name));
-  if (pool.length > 0) await cacheSet(env, key, pool, 6 * 60 * 60 * 1000);
+  // Only persist a COMPLETE pool for the long window. A partial pool (some nation's roster
+  // fetch failed) poisons every consumer — the draftable pool, projections, and the
+  // leaderboard's name/flag lookup — rendering that nation's scorers as bare numeric ids.
+  // Cache a partial for just a minute so the next request retries and self-heals.
+  if (pool.length > 0) {
+    const complete = teams.every((t) => covered.has(t.id));
+    await cacheSet(env, key, pool, complete ? 6 * 60 * 60 * 1000 : 60_000);
+  }
   return pool;
 }
 
